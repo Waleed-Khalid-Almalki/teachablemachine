@@ -1,42 +1,121 @@
 <!DOCTYPE html>
-<html>
+<html lang="ar" dir="rtl">
 <head>
   <meta charset="UTF-8">
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.8.0/dist/tf.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>تصنيف الصور باستخدام نموذج Teachable Machine</title>
+  <style>
+    body {
+      background-color: #f0f2f5;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+    .card {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+    .card input[type="file"] {
+      width: 100%;
+      padding: 0.5rem;
+      margin-bottom: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .card button {
+      background-color: #007bff;
+      color: #fff;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-size: 1rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .card button:disabled {
+      background-color: #6c757d;
+      cursor: not-allowed;
+    }
+    #status {
+      color: #dc3545;
+      margin-top: 1rem;
+      display: none;
+    }
+    ul#predictions {
+      list-style: none;
+      padding: 0;
+      margin-top: 1rem;
+      text-align: right;
+    }
+    ul#predictions li {
+      background: #f8f9fa;
+      margin-bottom: 0.5rem;
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.95rem;
+    }
+  </style>
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  <!-- Teachable Machine Image Library -->
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
 </head>
 <body>
-  <h1>تصنيف سيارة</h1>
-  <input type="file" id="inputImage" accept="image/*" />
-  <div id="prediction"></div>
+  <div class="card">
+    <h2>تصنيف الصور باستخدام نموذج Teachable Machine</h2>
+    <input type="file" id="input-file" accept="image/*">
+    <button id="classify-btn" disabled>تصنيف الصورة</button>
+    <p id="status">تم تحميل النموذج بنجاح! يمكنك الآن رفع صورة لتصنيفها</p>
+    <ul id="predictions"></ul>
+  </div>
 
   <script>
+    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/wMyGOWfn1/";
     let model;
-    // أولاً نحمّل النموذج
-    tf.loadGraphModel('path/to/model.json').then(m => {
-      model = m;
-      console.log('Model loaded');
-    });
 
-    // عند اختيار صورة
-    document.getElementById('inputImage').addEventListener('change', async e => {
+    // تحميل النموذج أولاً
+    async function init() {
+      const modelURL = MODEL_URL + "model.json";
+      const metadataURL = MODEL_URL + "metadata.json";
+      model = await tmImage.load(modelURL, metadataURL);
+      document.getElementById('status').style.display = 'block';
+      document.getElementById('classify-btn').disabled = false;
+    }
+
+    window.addEventListener('DOMContentLoaded', init);
+
+    // حدث الضغط على زر التصنيف
+    document.getElementById('classify-btn').addEventListener('click', async () => {
+      const input = document.getElementById('input-file');
+      const file = input.files[0];
+      if (!file) {
+        alert('يرجى اختيار ملف أولاً');
+        return;
+      }
+      // إنشاء عنصر صورة مؤقت للتصنيف
       const img = document.createElement('img');
-      img.src = URL.createObjectURL(e.target.files[0]);
+      img.src = URL.createObjectURL(file);
       await img.decode();
-      // نحول الصورة إلى tensor ونعدل حجمها
-      let tensor = tf.browser.fromPixels(img)
-        .resizeBilinear([224,224])  // تأكد من الحجم اللي دربت عليه
-        .expandDims(0)
-        .toFloat()
-        .div(255);
-      // نطلب التنبؤ
-      const predictions = await model.predict(tensor).data();
-      // نفترض عندك 4 كلاسات
-      const classes = ['Sedan','SUV','Truck','Sport car'];
-      const top = Array.from(predictions)
-        .map((p,i) => ({class: classes[i], probability: p}))
-        .sort((a,b) => b.probability - a.probability)[0];
-      document.getElementById('prediction').innerText =
-        `التصنيف: ${top.class} (ثقة ${(top.probability*100).toFixed(1)}%)`;
+
+      // إجراء التنبؤ
+      const predictions = await model.predict(img, false);
+
+      // عرض النتائج
+      const list = document.getElementById('predictions');
+      list.innerHTML = '';
+      predictions.forEach(p => {
+        const li = document.createElement('li');
+        li.textContent = `${p.className}: ${(p.probability * 100).toFixed(1)}%`;
+        list.appendChild(li);
+      });
     });
   </script>
 </body>
