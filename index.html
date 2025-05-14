@@ -1,66 +1,43 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>تصنيف الصور</title>
-  <style>
-    body { font-family: sans-serif; text-align: center; padding: 2rem; }
-    #loading { font-size: 1.2rem; }
-    img { max-width: 300px; margin: 1rem 0; }
-    ul { list-style: none; padding: 0; }
-  </style>
- 
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
-  
-  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+  <meta charset="UTF-8">
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.8.0/dist/tf.min.js"></script>
 </head>
 <body>
-  <h1>تصنيف الصور باستخدام Teachable Machine</h1>
-  <div id="loading">جاري تحميل النموذج…</div>
-
-  <div id="app" hidden>
-    <input type="file" id="input-image" accept="image/*" />
-    <div>
-      <img id="preview" src="" alt="تصنيف الصور" />
-    </div>
-    <ul id="predictions"></ul>
-  </div>
+  <h1>تصنيف سيارة</h1>
+  <input type="file" id="inputImage" accept="image/*" />
+  <div id="prediction"></div>
 
   <script>
-    const URL = "https://teachablemachine.withgoogle.com/models/wMyGOWfn1/"; 
-    let model, maxPredictions;
-
-    
-    async function init() {
-      const modelURL = URL + "model.json";
-      const metadataURL = URL + "metadata.json";
-      model = await tmImage.load(modelURL, metadataURL);
-      maxPredictions = model.getTotalClasses();
-
-      document.getElementById("loading").hidden = true;
-      document.getElementById("app").hidden = false;
-    }
-
-    
-    document.getElementById("input-image").addEventListener("change", async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      const imgEl = document.getElementById("preview");
-      imgEl.src = URL.createObjectURL(file);
-      imgEl.onload = async () => {
-        const prediction = await model.predict(imgEl, false);
-        const list = document.getElementById("predictions");
-        list.innerHTML = "";
-        prediction.forEach(p => {
-          const li = document.createElement("li");
-          li.textContent = `${p.className}: ${(p.probability * 100).toFixed(1)}%`;
-          list.appendChild(li);
-        });
-      };
+    let model;
+    // أولاً نحمّل النموذج
+    tf.loadGraphModel('path/to/model.json').then(m => {
+      model = m;
+      console.log('Model loaded');
     });
 
-    window.addEventListener("DOMContentLoaded", init);
+    // عند اختيار صورة
+    document.getElementById('inputImage').addEventListener('change', async e => {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(e.target.files[0]);
+      await img.decode();
+      // نحول الصورة إلى tensor ونعدل حجمها
+      let tensor = tf.browser.fromPixels(img)
+        .resizeBilinear([224,224])  // تأكد من الحجم اللي دربت عليه
+        .expandDims(0)
+        .toFloat()
+        .div(255);
+      // نطلب التنبؤ
+      const predictions = await model.predict(tensor).data();
+      // نفترض عندك 4 كلاسات
+      const classes = ['Sedan','SUV','Truck','Coupe'];
+      const top = Array.from(predictions)
+        .map((p,i) => ({class: classes[i], probability: p}))
+        .sort((a,b) => b.probability - a.probability)[0];
+      document.getElementById('prediction').innerText =
+        `التصنيف: ${top.class} (ثقة ${(top.probability*100).toFixed(1)}%)`;
+    });
   </script>
 </body>
 </html>
