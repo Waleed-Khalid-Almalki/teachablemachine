@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>تصنيف الصور</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 2rem; }
+    #loading { font-size: 1.2rem; }
+    img { max-width: 300px; margin: 1rem 0; }
+    ul { list-style: none; padding: 0; }
+  </style>
+ 
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.21.0/dist/tf.min.js"></script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.5/dist/teachablemachine-image.min.js"></script>
+</head>
+<body>
+  <h1>تصنيف الصور باستخدام Teachable Machine</h1>
+  <div id="loading">جاري تحميل النموذج…</div>
+
+  <div id="app" hidden>
+    <input type="file" id="input-image" accept="image/*" />
+    <div>
+      <img id="preview" src="" alt="صورة للتصنيف" />
+    </div>
+    <ul id="predictions"></ul>
+  </div>
+
+  <script>
+    const URL = "https://teachablemachine.withgoogle.com/models/wMyGOWfn1/"; 
+    let model, maxPredictions;
+
+    
+    async function init() {
+      const modelURL = URL + "model.json";
+      const metadataURL = URL + "metadata.json";
+      model = await tmImage.load(modelURL, metadataURL);
+      maxPredictions = model.getTotalClasses();
+
+      document.getElementById("loading").hidden = true;
+      document.getElementById("app").hidden = false;
+    }
+
+    
+    document.getElementById("input-image").addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const imgEl = document.getElementById("preview");
+      imgEl.src = URL.createObjectURL(file);
+      imgEl.onload = async () => {
+        const prediction = await model.predict(imgEl, false);
+        const list = document.getElementById("predictions");
+        list.innerHTML = "";
+        prediction.forEach(p => {
+          const li = document.createElement("li");
+          li.textContent = `${p.className}: ${(p.probability * 100).toFixed(1)}%`;
+          list.appendChild(li);
+        });
+      };
+    });
+
+    window.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>
